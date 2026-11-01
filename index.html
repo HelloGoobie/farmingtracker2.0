@@ -1,0 +1,533 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Field Tracker</title>
+<style>
+:root{
+  --bg:rgba(14,18,16,.94);--panel:#18201b;--card:#1f2a23;--card2:#253229;--line:#2f3d33;
+  --txt:#e8efe9;--mut:#93a598;
+  --ready:#4ade80;--soon:#fbbf24;--grow:#60a5fa;--none:#7c8a80;
+  --r:12px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:transparent;color:var(--txt);
+  font:14px/1.4 "Segoe UI",system-ui,-apple-system,Roboto,sans-serif;overflow:hidden}
+body{padding:0}
+button,select{font:inherit;color:inherit}
+#app{position:absolute;left:0;top:0;transform-origin:0 0;width:min(860px,calc(100vw - 32px));max-height:640px;display:flex;flex-direction:column;
+  background:var(--bg);border:1px solid var(--line);border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.55);overflow:hidden}
+header{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:12px 14px;border-bottom:1px solid var(--line);background:var(--panel)}
+.brand{display:flex;align-items:center;gap:8px;font-weight:700;font-size:16px;margin-right:auto}
+.brand i{font-style:normal;width:28px;height:28px;border-radius:8px;display:grid;place-items:center;background:#2b3a2f}
+.brand small{display:block;font-weight:400;font-size:11px;color:var(--mut)}
+.btn{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 11px;border-radius:9px;
+  border:1px solid var(--line);background:var(--card);cursor:pointer;white-space:nowrap}
+.btn:hover{background:var(--card2)}
+.btn.icon{width:32px;padding:0;justify-content:center}
+.btn.spin svg{animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+label.sel{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 4px 0 10px;border-radius:9px;border:1px solid var(--line);background:var(--card);color:var(--mut)}
+label.sel select{background:transparent;border:0;color:var(--txt);height:30px;cursor:pointer;outline:none}
+label.sel option,#settings option{background:#1f2a23}
+.sub{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:8px 14px;font-size:12px;color:var(--mut);border-bottom:1px solid var(--line)}
+.sub .legend{display:flex;gap:12px;margin-left:auto}
+.dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px;vertical-align:-1px}
+main{flex:1;overflow:auto;padding:14px}
+main::-webkit-scrollbar{width:8px}main::-webkit-scrollbar-thumb{background:#33433a;border-radius:8px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:10px}
+.list{display:flex;flex-direction:column;gap:6px}
+.f{position:relative;text-align:left;width:100%;border:1px solid var(--line);border-left:4px solid var(--c,var(--none));
+  background:var(--card);border-radius:var(--r);padding:11px 12px;cursor:pointer;transition:transform .08s,background .15s}
+.f:hover{background:var(--card2)}.f:active{transform:scale(.985)}
+.f.nonav{cursor:default}
+.f .top{display:flex;align-items:center;gap:8px}
+.f .name{font-weight:700;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.f .fert{font-size:11px;padding:1px 6px;border-radius:20px;background:#2e4a2b;color:#bfe9a8}
+.f .seed{color:var(--mut);font-size:12.5px;margin-top:2px}
+.f .time{font-variant-numeric:tabular-nums;font-size:22px;font-weight:700;color:var(--c);margin-top:8px}
+.f .state{font-size:12px;color:var(--mut)}
+.f .bar{height:5px;border-radius:5px;background:#121915;margin-top:9px;overflow:hidden}
+.f .bar b{display:block;height:100%;background:var(--c);width:0}
+.f .go{position:absolute;right:10px;top:11px;font-size:11px;color:var(--mut);opacity:0;transition:opacity .15s}
+.f:hover .go{opacity:1}
+.list .f{display:grid;grid-template-columns:1.4fr 1.2fr 140px;align-items:center;gap:12px;padding:9px 12px}
+.list .f .seed,.list .f .time{margin:0}.list .f .time{font-size:16px;text-align:right}
+.list .f .bar{grid-column:1/-1;margin-top:0}
+.list .f .go{display:none}
+.ready{--c:var(--ready)}.soon{--c:var(--soon)}.grow{--c:var(--grow)}.unk{--c:var(--none)}
+.ready .time{animation:pulse 1.6s ease-in-out infinite}
+@keyframes pulse{50%{opacity:.55}}
+.msg{padding:40px 16px;text-align:center;color:var(--mut)}
+.msg b{display:block;color:var(--txt);font-size:15px;margin-bottom:4px}
+#raw{display:none;border-top:1px solid var(--line);max-height:40%;overflow:auto;background:#0d120f;padding:10px 14px;font:12px/1.45 Consolas,monospace;color:#b8c7bc;white-space:pre-wrap;word-break:break-all;user-select:text}
+#raw.on{display:block}
+#settings{display:none;border-bottom:1px solid var(--line);background:#141b17;padding:12px 14px;gap:10px;flex-direction:column}
+#settings.on{display:flex}
+#settings .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+#settings label{font-size:12px;color:var(--mut);min-width:84px}
+#settings input,#settings select{flex:1;min-width:180px;height:32px;border-radius:9px;border:1px solid var(--line);background:#0d120f;color:var(--txt);padding:0 10px;font:13px Consolas,monospace;outline:none}
+#settings select{flex:0 0 auto;min-width:140px;font-family:inherit}
+#settings input:focus{border-color:#4b6352}
+#settings .note{font-size:11.5px;color:var(--mut);line-height:1.45;flex:1}
+.btn.primary{background:#2e4a2b;border-color:#3f6339}
+#toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%) translateY(20px);opacity:0;pointer-events:none;
+  background:#233026;border:1px solid var(--line);padding:9px 14px;border-radius:10px;transition:.2s;box-shadow:0 8px 24px rgba(0,0,0,.4)}
+#toast.on{opacity:1;transform:translateX(-50%)}
+@media(max-width:560px){.sub .legend{margin-left:0}.list .f{grid-template-columns:1fr auto}.list .f .seed{display:none}}
+header{cursor:move;user-select:none}
+header button,header select,header label{cursor:pointer}
+#app.hidden{display:none}
+#grip{position:absolute;right:3px;bottom:3px;width:16px;height:16px;cursor:nwse-resize;border-radius:0 0 12px 0;
+  background:linear-gradient(135deg,transparent 0 55%,#4b6352 55% 63%,transparent 63% 72%,#4b6352 72% 80%,transparent 80%)}
+#grip:hover{filter:brightness(1.5)}
+#mini{position:fixed;right:16px;bottom:16px;transform-origin:100% 100%;width:240px;display:none;
+  background:var(--bg);border:1px solid var(--line);border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.5);overflow:hidden;font-size:12.5px}
+#mini.on{display:block}
+#mini .mh{display:flex;align-items:center;gap:6px;padding:7px 8px 7px 10px;border-bottom:1px solid var(--line);font-weight:700;background:var(--panel)}
+#mini .mh span{flex:1}
+#mini .mh button{height:24px;width:24px;border-radius:7px;border:1px solid var(--line);background:var(--card);cursor:pointer;padding:0;font-size:12px}
+#mini .mr{display:flex;align-items:center;gap:8px;padding:5px 10px;border-left:3px solid var(--c,var(--none));cursor:pointer}
+#mini .mr:hover{background:var(--card)}
+#mini .mr .n{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#mini .mr .n small{color:var(--mut);margin-left:5px}
+#mini .mr .t{font-variant-numeric:tabular-nums;font-weight:700;color:var(--c)}
+#mini .mempty{padding:9px 10px;color:var(--mut)}
+</style>
+</head>
+<body>
+<div id="app" role="dialog" aria-label="Field Tracker">
+  <header>
+    <div class="brand"><i>🌾</i><div>Field Tracker<small id="who">Waiting for game data…</small></div></div>
+    <button class="btn" id="refresh" title="Fetch the latest field data">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v6h-6"/></svg>Refresh</button>
+    <button class="btn" id="layout" title="Switch layout"></button>
+    <label class="sel" title="Auto refresh">Auto
+      <select id="auto">
+        <option value="0">Off</option>
+        <option value="1000">1s · 3600 charges/h</option>
+        <option value="60000">1m · 60 charges/h</option>
+        <option value="600000">10m · 6 charges/h</option>
+        <option value="3600000">1h · 1 charge/h</option>
+      </select>
+    </label>
+    <button class="btn icon" id="pinb" title="Pin as compact view">📌</button>
+    <button class="btn icon" id="bell" title="Harvest notifications"></button>
+    <button class="btn icon" id="rawb" title="Show raw data">{ }</button>
+    <button class="btn icon" id="gear" title="Settings">⚙</button>
+    <button class="btn icon" id="close" title="Close (F1 to reopen)">✕</button>
+  </header>
+  <form id="settings" autocomplete="off" onsubmit="return false">
+    <div class="row"><label for="srv">Server</label>
+      <select id="srv"><option value="auto">Auto: cfx.re, then Tycoon API</option><option value="cfx">cfx.re proxy only</option><option value="api">Tycoon API (https)</option><option value="main">Main server direct (http only)</option><option value="beta">Beta server direct (http only)</option></select></div>
+    <div class="row"><label for="k">Private API key</label>
+      <input id="k" type="password" placeholder="Paste your X-Tycoon-Key (from /api private in game)" spellcheck="false">
+      <button class="btn icon" id="kshow" type="button" title="Show / hide">👁</button></div>
+    <div class="row"><label for="u">Endpoint</label>
+      <input id="u" type="text" spellcheck="false"></div>
+    <div class="row"><span class="note"><b style="color:#e9c46a">Each refresh uses 1 charge ($1,000).</b> Your private key is kept only in this app's storage on your PC and sent only to the endpoint above. The game supplies your public key automatically. <code>{base}</code> becomes the selected server's address.</span>
+      <button class="btn" id="reset" type="button">Reset</button>
+      <button class="btn primary" id="ssave" type="button">Save</button></div>
+  </form>
+  <div class="sub">
+    <span id="count">—</span>
+    <span id="updated">Not loaded yet</span>
+    <span id="charges"></span>
+    <span class="legend">
+      <span><i class="dot" style="background:var(--ready)"></i>Ready now</span>
+      <span><i class="dot" style="background:var(--soon)"></i>&lt; 1 hour</span>
+      <span><i class="dot" style="background:var(--grow)"></i>Growing</span>
+    </span>
+  </div>
+  <main id="main"><div class="msg"><b>Loading fields…</b></div></main>
+  <pre id="raw"></pre>
+  <div id="grip" title="Drag to resize · double-click to reset"></div>
+</div>
+<div id="mini" aria-label="Field Tracker (compact)">
+  <div class="mh" title="Click to expand"><span>🌾 Fields</span><button id="mexp" type="button" title="Expand">⤢</button></div>
+  <div id="mlist"></div>
+</div>
+<div id="toast"></div>
+
+<script>
+(function () {
+'use strict';
+
+/* ---------- settings ---------- */
+// Tycoon's own API. The https gateway works from https-hosted apps; the direct
+// http servers only work if this app itself is loaded over http.
+var SERVER_BASE = {
+  cfx: 'https://tycoon-2epova.users.cfx.re/status',
+  api: 'https://api.tycoon.community',
+  main: 'http://server.tycoon.community:30120/status',
+  beta: 'http://server.tycoon.community:30121/status'
+};
+var DEFAULT_URL = '{base}/farming/fields.json';
+var SERVER_LABEL = { auto: 'auto', cfx: 'cfx.re', api: 'Tycoon API', main: 'main server', beta: 'beta server' };
+var AUTO_ORDER = ['cfx', 'api'];
+var usedHost = '';
+var KEYSTORE = 'tt_fieldtracker_privkey';
+// Built-in private key (owner's choice). A key saved in ⚙ overrides it.
+var BUILTIN_KEY = 'qqHewKb0fxvFERGrbDuO7eShDEyX0Kr2jFEnY';
+var FERTILIZER_MULTIPLIER = 0.5;          // fertilized fields grow in half the time
+
+// Waypoints for every field, by the name the API returns.
+var LOCATIONS = {
+  Liquid: [2045.32, 4950.79], Wire: [2023.88, 4893.13], Boom: [1957.63, 4853.22], Controller: [1953.87, 4801.88],
+  Coffee: [1918.83, 4766.27], Chips: [1876.79, 4804.00], Temp: [2128.85, 5173.17], Screw: [2183.04, 5186.46],
+  Pipe: [2234.95, 5078.39], Taco: [2303.82, 5121.80], Tango: [2485.89, 4854.81], Arizona: [2539.09, 4816.21],
+  Mug: [2537.77, 4352.20], Pokemon: [2853.04, 4633.77], Pencil: [2919.51, 4678.45], Sport: [659.80, 6472.17],
+  Chocolate: [578.83, 6480.46], Cable: [477.97, 6482.32], Syringe: [263.52, 6461.71], Pressure: [266.79, 6604.94],
+  Box: [266.54, 6646.11], Mach: [-1956.83, 7098.04], Tornado: [-2337.44, 7208.66], Lamp: [-2288.85, 7362.92],
+  Socket: [-2630.90, 7200.72]
+};
+
+/* ---------- helpers ---------- */
+var $ = function (id) { return document.getElementById(id); };
+var INGAME = window.parent !== window;
+function post(m) { if (INGAME) window.parent.postMessage(m, '*'); }
+function num(v) { if (v === null || v === undefined || v === '') return null; v = Number(v); return isFinite(v) ? v : null; }
+function el(tag, cls, txt) { var e = document.createElement(tag); if (cls) e.className = cls; if (txt !== undefined) e.textContent = txt; return e; }
+function title(s) { return String(s).replace(/_seed$/i, '').replace(/[_-]+/g, ' ').replace(/\b\w/g, function (c) { return c.toUpperCase(); }); }
+
+var STORE = 'tt_fieldtracker_v5';
+var cfg = { layout: 'grid', auto: 60000, notify: true, notified: {}, server: 'auto', url: DEFAULT_URL, pos: null, scale: 1, miniScale: 1, compact: false };
+// The private key lives in its own storage slot, never in the page source.
+var privKey = '';
+try { privKey = localStorage.getItem(KEYSTORE) || ''; } catch (e) {}
+if (!privKey) privKey = BUILTIN_KEY;
+try {
+  var saved = JSON.parse(localStorage.getItem(STORE) || 'null');
+  if (saved) Object.keys(cfg).forEach(function (k) { if (saved[k] !== undefined && typeof saved[k] === typeof cfg[k]) cfg[k] = saved[k]; });
+} catch (e) {}
+if (cfg.layout !== 'list') cfg.layout = 'grid';
+if (cfg.server !== 'auto' && !SERVER_BASE[cfg.server]) cfg.server = 'auto';
+function save() { try { localStorage.setItem(STORE, JSON.stringify(cfg)); } catch (e) {} }
+
+var me = { uid: null, name: null, pkey: null };
+var fields = [], lastFetch = 0, busy = false, timer = null, demo = false;
+
+/* ---------- time ---------- */
+function fmt(ms) {
+  var s = Math.ceil(ms / 1000), d = Math.floor(s / 86400), h = Math.floor(s % 86400 / 3600), m = Math.floor(s % 3600 / 60), sec = s % 60;
+  var pad = function (x) { return (x < 10 ? '0' : '') + x; };
+  if (d) return d + 'd ' + h + 'h ' + pad(m) + 'm';
+  if (h) return h + 'h ' + pad(m) + 'm ' + pad(sec) + 's';
+  return m + 'm ' + pad(sec) + 's';
+}
+function ago(t) { var s = Math.round((Date.now() - t) / 1000); if (s < 5) return 'just now'; if (s < 60) return s + 's ago'; if (s < 3600) return Math.floor(s / 60) + 'm ago'; return Math.floor(s / 3600) + 'h ago'; }
+
+/* ---------- reading the API response ---------- */
+// Shape: { data: { fields: [ { name, isOwned, seed, state, time_planted, growth_time, isFertilized } ] } }
+function extractFields(json) {
+  if (json && json.data && Array.isArray(json.data.fields)) return json.data.fields;
+  if (json && Array.isArray(json.fields)) return json.fields;
+  if (Array.isArray(json)) return json;
+  return [];
+}
+function normalise(f) {
+  if (!f || typeof f !== 'object') return null;
+  var name = f.name ? String(f.name) : 'Unnamed field';
+  var state = f.state ? String(f.state).toLowerCase() : '';
+  var fert = !!f.isFertilized;
+  var planted = num(f.time_planted), grow = num(f.growth_time);
+  var total = grow !== null ? grow * 1000 * (fert ? FERTILIZER_MULTIPLIER : 1) : null;
+  var readyAt = (planted && total !== null) ? planted * 1000 + total : null;
+  var loc = LOCATIONS[name];
+  return {
+    id: name, name: name, owned: !!f.isOwned, fert: fert,
+    seed: f.seed ? title(f.seed) : 'Nothing planted', state: state ? title(state) : '',
+    ready: state === 'ready', empty: !f.seed && state !== 'ready',
+    readyAt: readyAt, total: total, pos: loc ? { x: loc[0], y: loc[1] } : null
+  };
+}
+function remaining(f, now) { if (f.ready) return 0; return f.readyAt === null ? null : f.readyAt - now; }
+
+/* ---------- fetching ---------- */
+function buildUrlFor(srv) { return (cfg.url.trim() || DEFAULT_URL).split('{base}').join(SERVER_BASE[srv]).split('{server}').join(srv); }
+var STATUS_MSG = {
+  401: 'The server says a key is missing. Check your private key in ⚙.',
+  402: 'Your API key is out of charges. Refill in game with /api private refill.',
+  403: 'Your API key was rejected. Check it in ⚙ (or regenerate it with /api private).'
+};
+
+function load() {
+  if (busy) return;
+  if (!privKey) {
+    if (!INGAME) { demo = true; ingest(demoData()); return; }
+    if (!fields.length) { $('main').replaceChildren(msg('Add your private API key to start', 'Press ⚙ and paste your key from /api private. Each refresh uses 1 charge.')); $('settings').classList.add('on'); }
+    return;
+  }
+  // 'auto' tries the cfx.re proxy first, then Tycoon's https API if cfx.re can't be reached.
+  var urls = cfg.server === 'auto' ? AUTO_ORDER.map(buildUrlFor) : [buildUrlFor(cfg.server)];
+  busy = true; $('refresh').classList.add('spin');
+  var headers = { 'X-Tycoon-Key': privKey };
+  if (me.pkey) headers['X-Tycoon-Public-Key'] = me.pkey;
+  var url = urls[0], mixed = false;
+  function attempt(i) {
+    url = urls[i];
+    mixed = location.protocol === 'https:' && /^http:/i.test(url);   // may be blocked as mixed content
+    var ctl = window.AbortController ? new AbortController() : null;
+    var to = setTimeout(function () { if (ctl) ctl.abort(); }, 10000);
+    return fetch(url, { cache: 'no-store', headers: headers, signal: ctl ? ctl.signal : undefined })
+      .then(function (r) { clearTimeout(to); usedHost = hostOf(url); return r; },
+            function (err) { clearTimeout(to); if (i + 1 < urls.length) return attempt(i + 1); throw err; });
+  }
+  attempt(0)
+    .then(function (r) {
+      var ch = r.headers.get('X-Tycoon-Charges');
+      if (ch !== null) $('charges').textContent = '· ' + Number(ch).toLocaleString() + ' charges left';
+      if (!r.ok) return r.text().then(function (t) {
+        var err = new Error(STATUS_MSG[r.status] || ('The server replied ' + r.status + (t ? ': ' + t.slice(0, 160) : '.')));
+        err.stop = r.status >= 401 && r.status <= 403;
+        throw err;
+      });
+      return r.json();
+    })
+    .then(function (json) { demo = false; ingest(json); if (!timer && cfg.auto > 0) schedule(); })
+    .catch(function (err) {
+      if (err && err.stop && timer) { clearInterval(timer); timer = null; toast('Auto refresh paused: fix the key, then press Refresh.'); }
+      var m = err && err.name === 'AbortError' ? 'The request timed out.'
+        : (err && /failed to fetch|networkerror|load failed/i.test(err.message))
+          ? (mixed ? 'The browser blocked the request: this app is on https, and the game server is http only. Load the app from an http:// address instead.'
+                   : 'Couldn’t reach ' + urls.map(hostOf).join(' or ') + '. The server may be offline.')
+        : (err && err.message) || 'Could not load the farming data.';
+      showError(m);
+    })
+    .then(function () { busy = false; $('refresh').classList.remove('spin'); });
+}
+function hostOf(u) { try { return new URL(u).host; } catch (e) { return 'the server'; } }
+
+function ingest(json) {
+  lastFetch = Date.now();
+  fields = extractFields(json).map(normalise).filter(Boolean);
+  $('raw').textContent = JSON.stringify(json, null, 2).slice(0, 60000);
+  render();
+}
+
+/* ---------- rendering ---------- */
+var cards = {};
+function render() {
+  var main = $('main'), now = Date.now();
+  var list = fields.filter(function (f) { return f.owned; });
+  main.replaceChildren(); cards = {}; $('mlist').replaceChildren(el('div', 'mempty', fields.length ? 'No crops growing' : 'No field data'));
+  $('layout').textContent = cfg.layout === 'grid' ? '☰ List' : '▦ Grid';
+  if (!privKey && !demo && !fields.length) { main.appendChild(msg('Add your private API key to start', 'Press ⚙ and paste your key from /api private. Each refresh uses 1 charge.')); return tick(); }
+  if (!list.length) { main.appendChild(msg('No fields found', fields.length ? 'You don’t own any fields.' : 'No field data was returned.')); return tick(); }
+
+  list.sort(function (a, b) {
+    var ra = remaining(a, now), rb = remaining(b, now);
+    if (a.empty) ra = Infinity; if (b.empty) rb = Infinity;
+    if (ra === null) ra = 1e15; if (rb === null) rb = 1e15;
+    return ra - rb || a.name.localeCompare(b.name);
+  });
+
+  var wrap = el('div', cfg.layout), mlist = $('mlist'); mlist.replaceChildren();
+  list.forEach(function (f) {
+    var b = el('button', 'f' + (f.pos ? '' : ' nonav'));
+    b.type = 'button';
+    var top = el('div', 'top'); top.appendChild(el('span', 'name', f.name));
+    if (f.fert) top.appendChild(el('span', 'fert', '🌿 Fertilized'));
+    b.appendChild(top);
+    b.appendChild(el('div', 'seed', f.seed + (f.state ? ' · ' + f.state : '')));
+    var t = el('div', 'time'); b.appendChild(t);
+    var st = el('div', 'state'); if (cfg.layout === 'grid') b.appendChild(st);
+    var bar = el('div', 'bar'), fill = el('b'); bar.appendChild(fill); b.appendChild(bar);
+    if (f.pos) b.appendChild(el('span', 'go', '📍 Set waypoint'));
+    b.title = f.pos ? 'Click to set a waypoint to ' + f.name : 'No location saved for this field';
+    b.onclick = function () { navigate(f); };
+    wrap.appendChild(b);
+    var mr = null, mt = null;
+    if (!f.empty) {
+      mr = el('div', 'mr'); var mn = el('span', 'n', f.name); mn.appendChild(el('small', null, f.seed));
+      mt = el('span', 't'); mr.appendChild(mn); mr.appendChild(mt);
+      mr.title = f.pos ? 'Click to set a waypoint' : f.name;
+      mr.onclick = function () { navigate(f); };
+      mlist.appendChild(mr);
+    }
+    cards[f.id] = { f: f, el: b, t: t, st: st, fill: fill, mr: mr, mt: mt };
+  });
+  main.appendChild(wrap);
+  if (!mlist.children.length) mlist.appendChild(el('div', 'mempty', 'No crops growing'));
+  tick();
+}
+function msg(h, p) { var d = el('div', 'msg'); d.appendChild(el('b', null, h)); d.appendChild(document.createTextNode(p)); return d; }
+function showError(text) {
+  if (fields.length && !demo) { toast('Refresh failed: ' + text); return; }
+  $('main').replaceChildren(msg('Couldn’t load your fields', text));
+}
+
+// Every second: countdowns, colours, progress bars, notifications.
+function tick() {
+  var now = Date.now(), ready = 0;
+  Object.keys(cards).forEach(function (k) {
+    var c = cards[k], f = c.f, left = remaining(f, now), cls;
+    if (f.empty) { cls = 'unk'; c.t.textContent = '—'; c.st.textContent = 'Empty'; c.fill.style.width = '0'; }
+    else if (left === null) { cls = 'unk'; c.t.textContent = '—'; c.st.textContent = f.state || 'No timer'; c.fill.style.width = '0'; }
+    else if (left <= 0) { cls = 'ready'; ready++; c.t.textContent = 'Ready now'; c.st.textContent = 'Ready to harvest'; c.fill.style.width = '100%'; }
+    else {
+      cls = left < 3600000 ? 'soon' : 'grow';
+      c.t.textContent = fmt(left);
+      c.st.textContent = 'Ready at ' + new Date(f.readyAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      c.fill.style.width = f.total ? Math.max(2, Math.min(100, 100 - left / f.total * 100)) + '%' : '0';
+    }
+    c.el.classList.remove('ready', 'soon', 'grow', 'unk'); c.el.classList.add(cls);
+    if (c.mr) { c.mt.textContent = cls === 'ready' ? 'Ready' : (left === null ? '—' : fmt(left)); c.mr.classList.remove('ready', 'soon', 'grow', 'unk'); c.mr.classList.add(cls); }
+    checkNotify(f, cls === 'ready');
+  });
+  var n = Object.keys(cards).length;
+  $('count').textContent = n + ' field' + (n === 1 ? '' : 's') + (ready ? ' · ' + ready + ' ready' : '') + (demo ? ' · demo data (not in game)' : ' · via ' + (usedHost || SERVER_LABEL[cfg.server]));
+  $('updated').textContent = lastFetch ? 'Updated ' + ago(lastFetch) : 'Not loaded yet';
+}
+setInterval(tick, 1000);
+
+/* ---------- harvest notifications ---------- */
+function sameCrop(a, b) { return a === b || (typeof a === 'number' && typeof b === 'number' && Math.abs(a - b) < 600000); }
+function checkNotify(f, isReady) {
+  if (demo) return;
+  var id = cfg.server + ':' + f.id, key = f.readyAt !== null ? f.readyAt : 'ready';
+  if (!isReady) { if (cfg.notified[id] !== undefined) { delete cfg.notified[id]; save(); } return; }
+  if (sameCrop(cfg.notified[id], key)) return;
+  cfg.notified[id] = key; save();
+  if (cfg.notify) post({ type: 'notification', text: '🌾 ' + f.name + ' is ready to harvest' + (f.seed !== 'Nothing planted' ? ' (' + f.seed + ')' : '') });
+}
+function syncBell() { $('bell').textContent = cfg.notify ? '🔔' : '🔕'; $('bell').title = cfg.notify ? 'Harvest notifications on' : 'Harvest notifications off'; }
+$('bell').onclick = function () { cfg.notify = !cfg.notify; save(); syncBell(); toast(cfg.notify ? '🔔 Harvest notifications on' : '🔕 Harvest notifications off'); };
+syncBell();
+
+/* ---------- waypoint + pin ---------- */
+function navigate(f) {
+  if (!f.pos) { toast('No location saved for ' + f.name + '.'); return; }
+  post({ type: 'setWaypoint', x: f.pos.x, y: f.pos.y });
+  post({ type: 'pin' });
+  setCompact(true);
+  toast('📍 Waypoint set to ' + f.name + (INGAME ? '' : ' (only works in game)'));
+}
+var tt = 0;
+function toast(t) { var e = $('toast'); e.textContent = t; e.classList.add('on'); clearTimeout(tt); tt = setTimeout(function () { e.classList.remove('on'); }, 2600); }
+
+/* ---------- controls ---------- */
+$('refresh').onclick = load;
+$('layout').onclick = function () { cfg.layout = cfg.layout === 'grid' ? 'list' : 'grid'; save(); render(); };
+$('auto').value = String(cfg.auto);
+if ($('auto').value !== String(cfg.auto)) { cfg.auto = 60000; $('auto').value = '60000'; }
+$('auto').onchange = function () { cfg.auto = Number(this.value) || 0; save(); schedule(); toast(cfg.auto ? 'Auto refresh: every ' + this.options[this.selectedIndex].text : 'Auto refresh off'); };
+function schedule() { clearInterval(timer); timer = null; if (cfg.auto > 0) timer = setInterval(load, cfg.auto); }
+$('rawb').onclick = function () { $('raw').classList.toggle('on'); };
+$('close').onclick = function () { post({ type: 'close' }); };
+document.body.addEventListener('mousedown', function (e) { if (e.target === document.body && !cfg.compact) post({ type: 'close' }); });
+document.addEventListener('keydown', function (e) { if (e.key === 'Escape') post({ type: 'close' }); });
+
+function fillSettings() { $('srv').value = cfg.server; $('k').value = privKey === BUILTIN_KEY ? '' : privKey; $('k').placeholder = 'Using the built-in key (paste another to override)'; $('k').type = 'password'; $('u').value = cfg.url; }
+$('gear').onclick = function () { fillSettings(); $('settings').classList.toggle('on'); };
+$('kshow').onclick = function () { $('k').type = $('k').type === 'password' ? 'text' : 'password'; };
+$('reset').onclick = function () { $('u').value = DEFAULT_URL; };
+$('ssave').onclick = function () {
+  var sv = $('srv').value; cfg.server = (sv === 'auto' || SERVER_BASE[sv]) ? sv : 'auto';
+  cfg.url = $('u').value.trim() || DEFAULT_URL;
+  var entered = $('k').value.trim();
+  try { if (entered && entered !== BUILTIN_KEY) localStorage.setItem(KEYSTORE, entered); else localStorage.removeItem(KEYSTORE); } catch (e) {}
+  privKey = entered || BUILTIN_KEY;
+  save(); $('k').type = 'password'; $('settings').classList.remove('on');
+  if (demo && privKey) { demo = false; fields = []; cards = {}; }
+  toast('Saved. Fetching your fields from ' + SERVER_LABEL[cfg.server] + '…');
+  load();
+};
+fillSettings();
+
+/* ---------- game data: who you are + your public key ---------- */
+window.addEventListener('message', function (e) {
+  var d = e.data && e.data.data; if (!d || typeof d !== 'object') return;
+  var first = !me.pkey;
+  if (d.user_id !== undefined && d.user_id !== null) me.uid = String(d.user_id);
+  if (d.name) me.name = String(d.name);
+  if (d.pkey) me.pkey = String(d.pkey);
+  if (me.uid) $('who').textContent = (me.name ? me.name + ' · ' : '') + 'ID ' + me.uid;
+  if (first && me.pkey && privKey && !fields.length) load();
+});
+var askedFull = false;
+function askGame() {
+  post({ type: 'getNamedData', keys: ['user_id', 'name', 'pkey'] });
+  // The old version of this app got pkey from a full getData; fall back to it once if needed.
+  setTimeout(function () { if (!me.pkey && !askedFull) { askedFull = true; post({ type: 'getData' }); } }, 2500);
+}
+if (INGAME) askGame(); else $('who').textContent = 'Browser preview';
+
+/* ---------- demo data (browser preview only) ---------- */
+function demoData() {
+  var n = Math.floor(Date.now() / 1000);
+  return { data: { fields: [
+    { name: 'Coffee', isOwned: true, seed: 'wheat_seed', state: 'growing', time_planted: n - 5400, growth_time: 7200, isFertilized: false },
+    { name: 'Taco', isOwned: true, seed: 'corn_seed', state: 'growing', time_planted: n - 3000, growth_time: 28800, isFertilized: true },
+    { name: 'Sport', isOwned: true, seed: 'potato_seed', state: 'ready', time_planted: n - 9000, growth_time: 7200, isFertilized: false },
+    { name: 'Pipe', isOwned: true, seed: 'cotton_seed', state: 'growing', time_planted: n - 2100, growth_time: 3600, isFertilized: false },
+    { name: 'Lamp', isOwned: true, seed: null, state: 'empty' },
+    { name: 'Wire', isOwned: false }
+  ] } };
+}
+
+/* ---------- move, scale, compact ---------- */
+var app = $('app'), mini = $('mini');
+function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
+function place() {
+  app.style.transform = 'scale(' + cfg.scale + ')';
+  mini.style.transform = 'scale(' + cfg.miniScale + ')';
+  var w = app.offsetWidth * cfg.scale, h = app.offsetHeight * cfg.scale;
+  var x = cfg.pos ? cfg.pos.x : (innerWidth - w) / 2, y = cfg.pos ? cfg.pos.y : (innerHeight - h) / 2;
+  x = clamp(x, 80 - w, innerWidth - 80); y = clamp(y, 0, innerHeight - 40);   // always keep the header grabbable
+  app.style.left = Math.round(x) + 'px'; app.style.top = Math.round(y) + 'px';
+}
+function curPos() { return { x: parseFloat(app.style.left) || 0, y: parseFloat(app.style.top) || 0 }; }
+
+// Drag by the header.
+app.querySelector('header').addEventListener('mousedown', function (e) {
+  if (e.button !== 0 || e.target.closest('button,select,label,input')) return;
+  e.preventDefault();
+  var start = curPos(), sx = e.clientX, sy = e.clientY;
+  function mv(ev) { cfg.pos = { x: start.x + ev.clientX - sx, y: start.y + ev.clientY - sy }; place(); }
+  function up() { removeEventListener('mousemove', mv); removeEventListener('mouseup', up); cfg.pos = curPos(); save(); }
+  addEventListener('mousemove', mv); addEventListener('mouseup', up);
+});
+
+// Resize by the corner grip (scales the whole window), double-click to reset.
+$('grip').addEventListener('mousedown', function (e) {
+  if (e.button !== 0) return; e.preventDefault(); e.stopPropagation();
+  cfg.pos = curPos();
+  var base = app.offsetWidth, w0 = base * cfg.scale, sx = e.clientX;
+  function mv(ev) { cfg.scale = clamp((w0 + ev.clientX - sx) / base, 0.5, 1.8); place(); }
+  function up() { removeEventListener('mousemove', mv); removeEventListener('mouseup', up); save(); }
+  addEventListener('mousemove', mv); addEventListener('mouseup', up);
+});
+$('grip').addEventListener('dblclick', function () { cfg.scale = 1; save(); place(); toast('Size reset'); });
+
+// Ctrl + mouse wheel also scales (the window, or the compact view when pinned).
+addEventListener('wheel', function (e) {
+  if (!e.ctrlKey) return; e.preventDefault();
+  var f = e.deltaY < 0 ? 1.06 : 1 / 1.06;
+  if (cfg.compact) cfg.miniScale = clamp(cfg.miniScale * f, 0.6, 2); else { cfg.pos = curPos(); cfg.scale = clamp(cfg.scale * f, 0.5, 1.8); }
+  save(); place();
+}, { passive: false });
+addEventListener('resize', place);
+
+function setCompact(on) {
+  cfg.compact = !!on; save();
+  app.classList.toggle('hidden', cfg.compact);
+  mini.classList.toggle('on', cfg.compact);
+  if (!cfg.compact) place();
+}
+$('pinb').onclick = function () { post({ type: 'pin' }); setCompact(true); };
+$('mexp').onclick = function (e) { e.stopPropagation(); setCompact(false); };
+mini.querySelector('.mh').onclick = function () { setCompact(false); };
+setCompact(cfg.compact);
+place();
+
+render();
+// In game, give the game a moment to send your public key first (the message
+// handler loads as soon as it arrives); fall back after 4s without it.
+if (INGAME) setTimeout(function () { if (!fields.length) load(); }, 4000); else load();
+schedule();
+})();
+</script>
+</body>
+</html>
